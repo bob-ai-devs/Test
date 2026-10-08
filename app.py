@@ -22,7 +22,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets"
 ]
 
-SHEET_ID = st.secrets["GOOGLE_SHEET_ID"]
+SHEET_ID = st.secrets["GOOGLE_SHEET_ID"].strip()
 
 
 # ============================================================
@@ -37,37 +37,47 @@ def get_sheets_service():
         scopes=SCOPES
     )
 
-    service = build(
+    return build(
         "sheets",
         "v4",
         credentials=credentials
     )
-
-    return service
 
 
 sheets = get_sheets_service()
 
 
 # ============================================================
-# GET FIRST SHEET / TAB NAME
+# GET SPREADSHEET INFORMATION
 # ============================================================
 
-def get_sheet_name():
+def get_spreadsheet():
 
-    spreadsheet = (
+    result = (
         sheets.spreadsheets()
         .get(
-            spreadsheetId=SHEET_ID,
-            fields="sheets.properties"
+            spreadsheetId=SHEET_ID
         )
         .execute()
     )
 
+    return result
+
+
+# ============================================================
+# GET FIRST TAB NAME
+# ============================================================
+
+def get_sheet_name():
+
+    spreadsheet = get_spreadsheet()
+
     sheet_list = spreadsheet.get("sheets", [])
 
     if not sheet_list:
-        raise Exception("No sheets/tabs found in the Google Sheet.")
+        raise Exception(
+            "The spreadsheet does not contain any sheets."
+        )
 
     return sheet_list[0]["properties"]["title"]
 
@@ -91,7 +101,7 @@ def append_row(sheet_name, name, age, city):
         .values()
         .append(
             spreadsheetId=SHEET_ID,
-            range=f"'{sheet_name}'!A1:C1",
+            range=f"'{sheet_name}'!A:C",
             valueInputOption="USER_ENTERED",
             insertDataOption="INSERT_ROWS",
             body=body
@@ -103,25 +113,83 @@ def append_row(sheet_name, name, age, city):
 
 
 # ============================================================
-# USER INTERFACE
+# TITLE
 # ============================================================
 
 st.title("📊 Google Sheets Data Entry")
 
-st.write(
-    "Enter your details below. "
-    "The record will be added as a new row in Google Sheets."
-)
+
+# ============================================================
+# CONNECTION TEST
+# ============================================================
+
+st.subheader("Google Sheets Connection")
+
+if st.button(
+    "🔎 Test Google Sheet Connection",
+    use_container_width=True
+):
+
+    try:
+
+        spreadsheet = get_spreadsheet()
+
+        spreadsheet_name = spreadsheet.get(
+            "properties",
+            {}
+        ).get(
+            "title",
+            "Unknown"
+        )
+
+        sheet_list = spreadsheet.get(
+            "sheets",
+            []
+        )
+
+        st.success("✅ Google Sheet connection successful!")
+
+        st.write(
+            f"**Spreadsheet:** {spreadsheet_name}"
+        )
+
+        st.write(
+            f"**Spreadsheet ID:** `{SHEET_ID}`"
+        )
+
+        st.write(
+            "**Tabs:**"
+        )
+
+        for sheet in sheet_list:
+
+            title = sheet["properties"]["title"]
+
+            st.write(
+                f"- {title}"
+            )
+
+    except Exception as e:
+
+        st.error(
+            f"❌ Connection Error: {e}"
+        )
 
 
 # ============================================================
-# INPUT FIELDS
+# INPUT SECTION
 # ============================================================
+
+st.divider()
+
+st.subheader("Enter Record")
+
 
 name = st.text_input(
     "Name",
     placeholder="Enter your name"
 )
+
 
 age = st.number_input(
     "Age",
@@ -131,6 +199,7 @@ age = st.number_input(
     step=1
 )
 
+
 city = st.text_input(
     "City",
     placeholder="Enter your city"
@@ -138,31 +207,33 @@ city = st.text_input(
 
 
 # ============================================================
-# SUBMIT
+# ADD RECORD
 # ============================================================
 
 if st.button(
-    "Add Record",
+    "➕ Add Record",
     type="primary",
     use_container_width=True
 ):
 
     if not name.strip():
 
-        st.warning("Please enter your name.")
+        st.warning(
+            "Please enter your name."
+        )
 
     elif not city.strip():
 
-        st.warning("Please enter your city.")
+        st.warning(
+            "Please enter your city."
+        )
 
     else:
 
         try:
 
-            # Get actual tab name automatically
             sheet_name = get_sheet_name()
 
-            # Append record
             append_row(
                 sheet_name,
                 name.strip(),
@@ -174,12 +245,8 @@ if st.button(
                 "✅ Record added successfully!"
             )
 
-            st.info(
-                f"Data added to sheet tab: {sheet_name}"
-            )
-
         except Exception as e:
 
             st.error(
-                f"Error: {e}"
+                f"❌ Error: {e}"
             )
