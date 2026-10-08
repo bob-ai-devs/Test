@@ -4,6 +4,17 @@ from googleapiclient.discovery import build
 
 
 # ============================================================
+# PAGE CONFIGURATION
+# ============================================================
+
+st.set_page_config(
+    page_title="Google Sheets Data Entry",
+    page_icon="📊",
+    layout="centered"
+)
+
+
+# ============================================================
 # CONFIGURATION
 # ============================================================
 
@@ -12,8 +23,6 @@ SCOPES = [
 ]
 
 SHEET_ID = st.secrets["GOOGLE_SHEET_ID"]
-
-SHEET_NAME = "Sheet1"
 
 
 # ============================================================
@@ -41,10 +50,33 @@ sheets = get_sheets_service()
 
 
 # ============================================================
-# APPEND DATA TO GOOGLE SHEET
+# GET FIRST SHEET / TAB NAME
 # ============================================================
 
-def append_row(name, age, city):
+def get_sheet_name():
+
+    spreadsheet = (
+        sheets.spreadsheets()
+        .get(
+            spreadsheetId=SHEET_ID,
+            fields="sheets.properties"
+        )
+        .execute()
+    )
+
+    sheet_list = spreadsheet.get("sheets", [])
+
+    if not sheet_list:
+        raise Exception("No sheets/tabs found in the Google Sheet.")
+
+    return sheet_list[0]["properties"]["title"]
+
+
+# ============================================================
+# APPEND ROW
+# ============================================================
+
+def append_row(sheet_name, name, age, city):
 
     values = [
         [name, age, city]
@@ -59,7 +91,7 @@ def append_row(name, age, city):
         .values()
         .append(
             spreadsheetId=SHEET_ID,
-            range=f"{SHEET_NAME}!A:C",
+            range=f"'{sheet_name}'!A1:C1",
             valueInputOption="USER_ENTERED",
             insertDataOption="INSERT_ROWS",
             body=body
@@ -71,18 +103,15 @@ def append_row(name, age, city):
 
 
 # ============================================================
-# STREAMLIT UI
+# USER INTERFACE
 # ============================================================
-
-st.set_page_config(
-    page_title="Google Sheets Data Entry",
-    page_icon="📊",
-    layout="centered"
-)
 
 st.title("📊 Google Sheets Data Entry")
 
-st.write("Enter your details below.")
+st.write(
+    "Enter your details below. "
+    "The record will be added as a new row in Google Sheets."
+)
 
 
 # ============================================================
@@ -90,7 +119,8 @@ st.write("Enter your details below.")
 # ============================================================
 
 name = st.text_input(
-    "Name"
+    "Name",
+    placeholder="Enter your name"
 )
 
 age = st.number_input(
@@ -102,7 +132,8 @@ age = st.number_input(
 )
 
 city = st.text_input(
-    "City"
+    "City",
+    placeholder="Enter your city"
 )
 
 
@@ -112,7 +143,8 @@ city = st.text_input(
 
 if st.button(
     "Add Record",
-    type="primary"
+    type="primary",
+    use_container_width=True
 ):
 
     if not name.strip():
@@ -127,14 +159,23 @@ if st.button(
 
         try:
 
+            # Get actual tab name automatically
+            sheet_name = get_sheet_name()
+
+            # Append record
             append_row(
+                sheet_name,
                 name.strip(),
                 int(age),
                 city.strip()
             )
 
             st.success(
-                "Record added successfully!"
+                "✅ Record added successfully!"
+            )
+
+            st.info(
+                f"Data added to sheet tab: {sheet_name}"
             )
 
         except Exception as e:
