@@ -20,7 +20,7 @@ FILE_NAME = "users.csv"
 LOCK_FILE_NAME = "users.csv.lock"
 
 # Google Drive folder where the CSV should be stored
-FOLDER_ID = "YOUR_GOOGLE_DRIVE_FOLDER_ID"
+FOLDER_ID = "1gBVEsolVKjNcXJQez8JomJKL28t9XAt2"
 
 # Columns in the CSV
 COLUMNS = [
